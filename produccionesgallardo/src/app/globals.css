@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-950: #07070a;
+  --color-ink-900: #0d0d12;
+  --color-ink-800: #15151d;
+  --color-ink-700: #1f1f2a;
+  --color-ink-600: #2c2c3a;
+  --color-gold-300: #ffd76a;
+  --color-gold-400: #fbc53a;
+  --color-gold-500: #f5b301;
+  --color-gold-600: #d39800;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --animate-pan: pan 18s ease-in-out infinite alternate;
+  @keyframes pan {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-ink-950);
+  color: #ececf1;
+}
+
+/* Panel administrativo: superficie clara para lectura prolongada */
+.admin-surface {
+  background: #f5f6f8;
+  color: #1b1d24;
+}
+
+/* Componentes en la capa "components" para que las utilidades puedan sobrescribirlos */
+@layer components {
+  .input {
+    @apply w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-gold-500 focus:ring-2 focus:ring-gold-500/30;
+  }
+  .admin-surface .input {
+    @apply border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-amber-500 focus:ring-amber-500/25;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-semibold tracking-wide text-white/70 uppercase;
+  }
+  .admin-surface .label {
+    @apply text-slate-500;
+  }
+  .btn,
+  .btn-gold,
+  .btn-ghost,
+  .btn-dark,
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-gold {
+    @apply bg-gold-500 text-ink-950 hover:bg-gold-400 focus-visible:ring-2 focus-visible:ring-gold-300;
+  }
+  .btn-ghost {
+    @apply border border-white/15 text-white hover:bg-white/10;
+  }
+  .admin-surface .btn-ghost {
+    @apply border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+  }
+  .btn-dark {
+    @apply bg-slate-900 text-white hover:bg-slate-700;
+  }
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-500;
+  }
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+    color: black;
+  }
+}

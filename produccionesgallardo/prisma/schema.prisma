@@ -1,0 +1,171 @@
+// Producciones Gallardo — modelo de datos.
+// SQLite en desarrollo; para producción cambie `provider` a "postgresql".
+// Los valores tipo enum se guardan como String (SQLite no soporta enums);
+// los valores válidos están centralizados en src/lib/constants.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String // ADMIN | VENTAS | LOGISTICA
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
+
+model Asset {
+  id                  String   @id @default(cuid())
+  name                String
+  category            String // AUDIO | VIDEO_LED | ESTRUCTURAS | BANDA
+  unit                String   @default("unidad") // unidad, m², módulo, set...
+  description         String   @default("")
+  specs               String   @default("") // ficha técnica resumida (texto)
+  specSheetUrl        String? // PDF descargable
+  imageUrl            String?
+  recommendedCapacity String   @default("") // ej. "hasta 2.000 personas"
+  totalStock          Int      @default(0)
+  maintenanceUnits    Int      @default(0)
+  dailyRate           Float    @default(0) // precio referencial por unidad/día (USD)
+  active              Boolean  @default(true)
+  publicVisible       Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  requestItems RequestItem[]
+  quoteItems   QuoteItem[]
+}
+
+model Client {
+  id        String    @id @default(cuid())
+  name      String
+  email     String
+  whatsapp  String    @unique // formato E.164 (+593...)
+  notes     String    @default("")
+  createdAt DateTime  @default(now())
+  requests  Request[]
+}
+
+model Request {
+  id           String    @id @default(cuid())
+  ticket       String    @unique // ej. PG-2611-4F7K
+  clientId     String
+  client       Client    @relation(fields: [clientId], references: [id])
+  eventType    String // BODA | CONCIERTO | CORPORATIVO | FESTIVAL | OTRO
+  setupDate    DateTime // inicio de montaje
+  eventDate    DateTime // inicio del evento
+  eventEndDate DateTime? // fin del evento (si no se indica, se asume eventDate + 6h)
+  locationType String // MACHALA | CANTON_EL_ORO | OTRA_PROVINCIA
+  canton       String    @default("Machala")
+  province     String    @default("El Oro")
+  audience     Int? // aforo aproximado
+  description  String    @default("")
+  status       String    @default("NUEVO") // ver PIPELINE en constants.ts
+  // Bloqueo logístico calculado al confirmar (montaje + traslado → desmontaje + traslado)
+  blockStart   DateTime?
+  blockEnd     DateTime?
+  quoteTotal   Float?
+  quoteNotes   String    @default("")
+  aiActive     Boolean   @default(true) // false tras transferir al asesor humano
+  assignedToId String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  items        RequestItem[]
+  quoteItems   QuoteItem[]
+  appointments Appointment[]
+  messages     AiMessage[]
+  activities   Activity[]
+}
+
+// Equipamiento solicitado por el cliente desde el formulario.
+model RequestItem {
+  id        String  @id @default(cuid())
+  requestId String
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  assetId   String
+  asset     Asset   @relation(fields: [assetId], references: [id])
+  quantity  Int
+  note      String  @default("")
+}
+
+// Ítems finales del presupuesto (generador de presupuesto rápido).
+// Si el pedido está CONFIRMADO, estos ítems son los que reservan inventario.
+model QuoteItem {
+  id        String  @id @default(cuid())
+  requestId String
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  assetId   String
+  asset     Asset   @relation(fields: [assetId], references: [id])
+  quantity  Int
+  unitPrice Float
+  days      Int     @default(1)
+}
+
+model Appointment {
+  id        String   @id @default(cuid())
+  requestId String
+  request   Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  start     DateTime
+  end       DateTime
+  mode      String   @default("VIRTUAL") // VIRTUAL | PRESENCIAL
+  location  String   @default("")
+  notes     String   @default("")
+  status    String   @default("PROGRAMADA") // PROGRAMADA | REALIZADA | CANCELADA
+  createdAt DateTime @default(now())
+}
+
+// Log de conversación del agente IA por WhatsApp.
+model AiMessage {
+  id        String   @id @default(cuid())
+  requestId String
+  request   Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  role      String // AGENT | CLIENT | SYSTEM | HUMAN
+  content   String
+  channel   String   @default("WHATSAPP")
+  delivered Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// Historial de cambios de estado y acciones sobre una solicitud.
+model Activity {
+  id        String   @id @default(cuid())
+  requestId String
+  request   Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  type      String // STATUS | NOTE | QUOTE | APPOINTMENT | WEBHOOK
+  message   String
+  actor     String   @default("Sistema")
+  createdAt DateTime @default(now())
+}
+
+// Reglas de traslado: horas extra de bloqueo según destino.
+model TransferRule {
+  id         String  @id @default(cuid())
+  canton     String  @unique
+  province   String  @default("El Oro")
+  extraHours Int
+  note       String  @default("")
+  lat        Float?
+  lng        Float?
+  covered    Boolean @default(true) // se muestra en el mapa de cobertura
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model Brand {
+  id      String  @id @default(cuid())
+  name    String
+  logoUrl String?
+  order   Int     @default(0)
+}
