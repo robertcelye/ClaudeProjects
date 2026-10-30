@@ -1,0 +1,79 @@
+# Despliegue completo: PostgreSQL + migraciones + app Next.js + Caddy (HTTPS automático).
+#   cp .env.production.example .env   # y complete los valores
+#   docker compose up -d --build
+# Desarrollo local (solo la base): docker compose up -d db
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gallardo
+      POSTGRES_USER: gallardo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gallardo}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432" # accesible solo desde el propio servidor
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gallardo -d gallardo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: .
+      target: builder
+    image: produccionesgallardo-tools
+    command: ["sh", "scripts/bootstrap.sh"]
+    environment:
+      DATABASE_URL: postgresql://gallardo:${POSTGRES_PASSWORD:-gallardo}@db:5432/gallardo?schema=public
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@produccionesgallardo.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SEED_MODE: ${SEED_MODE:-base}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    profiles: ["app"]
+
+  app:
+    build:
+      context: .
+      target: runner
+    image: produccionesgallardo
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://gallardo:${POSTGRES_PASSWORD:-gallardo}@db:5432/gallardo?schema=public
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000" # Caddy publica la app; este puerto es solo para diagnóstico local
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    profiles: ["app"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    profiles: ["app"]
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

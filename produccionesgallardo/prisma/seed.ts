@@ -47,7 +47,25 @@ const CANTONS = [
   { canton: "Otra provincia", extraHours: 24, lat: null, lng: null, province: "Nacional", covered: false, note: "Valor por defecto para eventos fuera de El Oro" },
 ];
 
+// SEED_MODE=demo (por defecto): usuarios de prueba + solicitudes de ejemplo.
+// SEED_MODE=base: solo el administrador (ADMIN_EMAIL / ADMIN_PASSWORD), configuración,
+//   inventario, cantones y marcas. Pensado para el primer arranque en producción.
+// La semilla borra los datos existentes: si ya hay solicitudes se detiene salvo SEED_FORCE=1.
+const MODE = process.env.SEED_MODE === "base" ? "base" : "demo";
+
 async function main() {
+  const existing = await prisma.request.count();
+  if (existing > 0 && process.env.SEED_FORCE !== "1") {
+    console.error(`La base ya tiene ${existing} solicitudes. La semilla las borraría; use SEED_FORCE=1 si de verdad quiere reiniciarla.`);
+    process.exit(1);
+  }
+  const adminEmail = (process.env.ADMIN_EMAIL ?? "admin@produccionesgallardo.com").toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD ?? (MODE === "demo" ? "Admin123!" : "");
+  if (adminPassword.length < 8) {
+    console.error("Defina ADMIN_PASSWORD (mínimo 8 caracteres) para crear el administrador.");
+    process.exit(1);
+  }
+
   await prisma.$transaction([
     prisma.activity.deleteMany(),
     prisma.aiMessage.deleteMany(),
@@ -64,13 +82,15 @@ async function main() {
   ]);
 
   const pass = (p: string) => bcrypt.hashSync(p, 10);
-  await prisma.user.createMany({
-    data: [
-      { name: "Administrador", email: "admin@produccionesgallardo.com", passwordHash: pass("Admin123!"), role: "ADMIN" },
-      { name: "María Ventas", email: "ventas@produccionesgallardo.com", passwordHash: pass("Ventas123!"), role: "VENTAS" },
-      { name: "Luis Logística", email: "logistica@produccionesgallardo.com", passwordHash: pass("Logistica123!"), role: "LOGISTICA" },
-    ],
-  });
+  await prisma.user.create({ data: { name: "Administrador", email: adminEmail, passwordHash: pass(adminPassword), role: "ADMIN" } });
+  if (MODE === "demo") {
+    await prisma.user.createMany({
+      data: [
+        { name: "María Ventas", email: "ventas@produccionesgallardo.com", passwordHash: pass("Ventas123!"), role: "VENTAS" },
+        { name: "Luis Logística", email: "logistica@produccionesgallardo.com", passwordHash: pass("Logistica123!"), role: "LOGISTICA" },
+      ],
+    });
+  }
 
   await prisma.setting.createMany({ data: Object.entries(SETTING_DEFAULTS).map(([key, value]) => ({ key, value })) });
 
@@ -84,6 +104,11 @@ async function main() {
   await prisma.brand.createMany({
     data: ["GAD Municipal de Machala", "Feria Mundial del Banano", "Banco del Pacífico", "Universidad Técnica de Machala", "Cervecería Nacional", "Prefectura de El Oro"].map((name, order) => ({ name, order })),
   });
+
+  if (MODE === "base") {
+    console.log(`Semilla base cargada ✔  Administrador: ${adminEmail}`);
+    return;
+  }
 
   // Solicitudes de ejemplo (fechas relativas a hoy)
   const today = parseLocal(dayKey(new Date()));
@@ -159,7 +184,7 @@ async function main() {
   const r = await prisma.request.findFirst({ where: { status: "COTIZACION_ENVIADA" } });
   if (r) await prisma.appointment.create({ data: { requestId: r.id, start: at(1, 16), end: at(1, 16.75), mode: "PRESENCIAL", location: "Oficina Machala", notes: "Revisión de cotización" } });
 
-  console.log("Semilla cargada ✔  Usuario: admin@produccionesgallardo.com / Admin123!");
+  console.log(`Semilla de demostración cargada ✔  Usuario: ${adminEmail} / ${adminPassword}`);
 }
 
 main()

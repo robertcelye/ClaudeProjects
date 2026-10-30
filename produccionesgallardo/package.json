@@ -9,9 +9,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "db:push": "prisma db push",
     "db:seed": "prisma db seed",
-    "setup": "prisma db push && prisma db seed"
+    "setup": "prisma migrate deploy && prisma db seed",
+    "db:migrate": "prisma migrate dev"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

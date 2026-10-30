@@ -1,6 +1,6 @@
 // Producciones Gallardo — modelo de datos.
-// SQLite en desarrollo; para producción cambie `provider` a "postgresql".
-// Los valores tipo enum se guardan como String (SQLite no soporta enums);
+// PostgreSQL en desarrollo (docker compose up -d db) y en producción.
+// Los valores tipo enum se guardan como String para mantener el esquema portable;
 // los valores válidos están centralizados en src/lib/constants.ts.
 
 generator client {
@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

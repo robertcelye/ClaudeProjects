@@ -2,17 +2,20 @@
 
 Implementación de la propuesta técnica (8 de septiembre de 2026): **portal público** de captación y agendamiento + **panel administrativo** operativo, con agente IA de calificación por WhatsApp.
 
-**Stack:** Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · Prisma (SQLite en desarrollo / PostgreSQL en producción) · Claude API (`@anthropic-ai/sdk`) · WhatsApp Business Cloud API.
+**Stack:** Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · Prisma + PostgreSQL · Claude API (`@anthropic-ai/sdk`) · WhatsApp Business Cloud API.
 
-## Puesta en marcha
+## Puesta en marcha (desarrollo)
 
 ```bash
 cd produccionesgallardo
 cp .env.example .env      # complete AUTH_SECRET (y opcionalmente las claves de IA/WhatsApp)
+docker compose up -d db   # PostgreSQL local
 npm install
-npm run setup             # crea la BD y carga datos de ejemplo
+npm run setup             # aplica migraciones y carga datos de demostración
 npm run dev               # http://localhost:3000
 ```
+
+**Producción:** consulte [DEPLOY.md](DEPLOY.md). Ahí está el despliegue en un VPS con Docker Compose (PostgreSQL, migraciones automáticas y HTTPS con Caddy), respaldos y la configuración de WhatsApp.
 
 Usuarios de prueba (semilla):
 
@@ -22,7 +25,7 @@ Usuarios de prueba (semilla):
 | Ventas | ventas@produccionesgallardo.com | Ventas123! |
 | Logística | logistica@produccionesgallardo.com | Logistica123! |
 
-Otros comandos: `npm test` (pruebas unitarias), `npm run lint`, `npm run typecheck`, `npm run build`.
+Otros comandos: `npm test` (pruebas unitarias), `npm run lint`, `npm run typecheck`, `npm run build`, `npm run db:migrate` (crear una migración tras cambiar `prisma/schema.prisma`). La semilla se niega a borrar una base que ya tiene solicitudes, salvo con `SEED_FORCE=1`.
 
 ## Mapa de vistas
 
@@ -63,10 +66,3 @@ Las horas de traslado vienen de las reglas por cantón (p. ej. +12 h para Piñas
 **Roles.** Administrador: todo. Ventas: tablero, calendario, CRM y presupuestos. Logística: tablero, calendario, inventario (edición) y expedientes. `src/proxy.ts` hace la verificación inicial de sesión y cada página y acción del servidor vuelve a validar el permiso.
 
 **Zona horaria.** Toda la lógica opera en hora de Ecuador continental (UTC−5), independientemente del servidor o navegador.
-
-## Producción
-
-1. En `prisma/schema.prisma` cambie `provider = "postgresql"` y apunte `DATABASE_URL` a la base.
-2. `npx prisma db push` (o migraciones) y opcionalmente `npm run db:seed`.
-3. `npm run build && npm start` (Node 20+). Configure `AUTH_SECRET`, `ANTHROPIC_API_KEY` y las variables de WhatsApp.
-4. Suba el video reel (p. ej. `public/media/reel.mp4`) y configure su URL en la Vista 10.
